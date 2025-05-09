@@ -1,3 +1,6 @@
+# nix flake & direnv
+.direnv/
+
 /target
 
 # Byte-compiled / optimized / DLL files
