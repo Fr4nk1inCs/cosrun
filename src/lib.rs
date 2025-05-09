@@ -1,14 +1,10 @@
-use pyo3::prelude::*;
+pub mod utils;
 
-/// Formats the sum of two numbers as string.
-#[pyfunction]
-fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b).to_string())
-}
+use pyo3::{prelude::*, wrap_pymodule};
 
 /// A Python module implemented in Rust.
 #[pymodule]
 fn cosrun(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
+    m.add_wrapped(wrap_pymodule!(utils::utils))?;
     Ok(())
 }

@@ -10,3 +10,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = "0.24.0"
+tvix-eval = { git = "https://code.tvl.fyi/depot.git", version = "0.1.0" }
