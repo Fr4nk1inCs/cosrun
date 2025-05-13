@@ -9,5 +9,8 @@ name = "cosutils"
 crate-type = ["cdylib"]
 
 [dependencies]
+annotate-snippets = "0.11.5"
 pyo3 = "0.24.0"
 tvix-eval = { git = "https://code.tvl.fyi/depot.git", version = "0.1.0" }
+rnix = "0.11.0"
+codemap = "0.1.3"
