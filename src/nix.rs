@@ -17,9 +17,9 @@ use tvix_eval::{
 };
 use tvix_eval::{EvalIO, EvalMode, Evaluation, StdIO};
 
-create_exception!(nix, ParseError, PyValueError);
-create_exception!(nix, EvaluateError, PyValueError);
-create_exception!(nix, ConvertionError, PyValueError);
+create_exception!(rustlib, ParseError, PyValueError);
+create_exception!(rustlib, EvaluationError, PyValueError);
+create_exception!(rustlib, ConversionError, PyValueError);
 
 trait IntoRange<T> {
     fn into_range(self) -> Range<T>;
@@ -132,7 +132,7 @@ impl IntoPyErr for TvixError {
                     .title(&title)
                     .snippet(snippet.annotation(Level::Error.span(range)));
                 let message = renderer.render(message).to_string();
-                EvaluateError::new_err(message)
+                EvaluationError::new_err(message)
             }
         }
     }
@@ -153,7 +153,7 @@ fn eval_expr(expr: &str, location: Option<PathBuf>) -> PyResult<TvixValue> {
     } else {
         // Error message
         if result.errors.is_empty() {
-            Err(EvaluateError::new_err(
+            Err(EvaluationError::new_err(
                 "No error is throwed but evaluation failed".to_string(),
             ))
         } else {
@@ -192,7 +192,7 @@ impl TryToPy for TvixValue {
             }
             TvixValue::Path(s) => {
                 let converted = s.clone().into_os_string().into_string().map_err(|_| {
-                    ConvertionError::new_err(
+                    ConversionError::new_err(
                         "Failed to convert path to string, try wrap your path as `\"${path}\"`",
                     )
                 })?;
@@ -210,7 +210,7 @@ impl TryToPy for TvixValue {
                 let dict = PyDict::new(py);
                 for (k, v) in attrs.iter() {
                     let key = from_utf8(k.as_bytes()).map_err(|e| {
-                        ConvertionError::new_err(format!(
+                        ConversionError::new_err(format!(
                             "Failed to convert bytes to string ({}) on {}",
                             e, k
                         ))
@@ -224,13 +224,13 @@ impl TryToPy for TvixValue {
                 if thunk.is_evaluated() {
                     thunk.value().try_to_object(py)?
                 } else {
-                    Err(ConvertionError::new_err(format!(
+                    Err(ConversionError::new_err(format!(
                         "Cannot convert nix thunk to python object: {}",
                         self
                     )))?
                 }
             }
-            _ => Err(ConvertionError::new_err(format!(
+            _ => Err(ConversionError::new_err(format!(
                 "Cannot convert nix type {} to python object",
                 self
             )))?,
@@ -239,16 +239,30 @@ impl TryToPy for TvixValue {
     }
 }
 
-/// Evaluate a nix file and convert it to python dictionary
-/// The expression must be evaluated as attrset.
+/// Evaluate a nix file and convert it to python object.
 ///
 /// Args:
-///   path (str): The path to the nix file.
+///   - path (str): The path to the nix file.
 ///
 /// Returns:
-///   dict: The evaluated nix expression as a python dictionary.
+///   - evaluated: The evaluated nix expression as any python object
+///
+/// Raises:
+///   - ParseError: If the nix file cannot be parsed.
+///   - EvaluationError: If the nix expression cannot be evaluated.
+///   - ConversionError: If the result cannot be converted to a python object.
+///
+/// Example:
+/// ```python
+/// # `path/to/file.nix` contains:
+/// # ```
+/// # {a = 1;}
+/// # ```
+/// >>> eval("path/to/file.nix")
+/// {'a': 1}
+/// ```
 #[pyfunction]
-pub fn eval(py: Python<'_>, path: String) -> PyResult<PyObject> {
+fn eval(py: Python<'_>, path: String) -> PyResult<PyObject> {
     let path = PathBuf::from(path);
     let content = fs::read_to_string(&path).map_err(|e| {
         PyIOError::new_err(format!(
@@ -260,19 +274,29 @@ pub fn eval(py: Python<'_>, path: String) -> PyResult<PyObject> {
     eval_expr(&content, Some(path.clone()))?.try_to_object(py)
 }
 
-/// Evaluate a nix expression and convert it to python dictionary.
-/// The expression must be evaluated as attrset.
+/// Evaluate a nix expression and convert it to python object.
 ///
 /// Args:
-///    content (str): The nix expression to evaluate.
-///    dir (str): The base directory to evaluate the expression in, we will
-///               create a vitrual nix file as if the content is in the file
+///   - expr (str): The nix expression to evaluate.
+///   - dir (str): The base directory to evaluate the expression in, we will
+///                create a vitrual nix file as if the expr is in the file.
 ///
 /// Returns:
-///   dict: The evaluated nix expression as a python dictionary.
+///   - evaluated: The evaluated nix expression as any python object
+///
+/// Raises:
+///   - ParseError: If the nix file cannot be parsed.
+///   - EvaluationError: If the nix expression cannot be evaluated.
+///   - ConversionError: If the result cannot be converted to a python object.
+///
+/// Example:
+/// ```python
+/// >>> evals("{a = 1;}")
+/// {'a': 1}
+/// ```
 #[pyfunction]
 #[pyo3(signature = (content, dir = None))]
-pub fn evals(
+fn evals(
     py: Python<'_>,
     content: String,
     dir: Option<String>,
@@ -281,8 +305,10 @@ pub fn evals(
     eval_expr(&content, path)?.try_to_object(py)
 }
 
-#[pymodule]
-pub fn nix(m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn export(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("ParseError", py.get_type::<ParseError>())?;
+    m.add("EvaluationError", py.get_type::<EvaluationError>())?;
+    m.add("ConversionError", py.get_type::<ConversionError>())?;
     m.add_function(wrap_pyfunction!(eval, m)?)?;
     m.add_function(wrap_pyfunction!(evals, m)?)?;
     Ok(())

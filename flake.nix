@@ -36,8 +36,10 @@
 
             hooks = {
               commitizen.enable = true;
+
               black.enable = true;
               isort.enable = true;
+              mypy.enable = true;
 
               # cargo-check.enable = true;
               rustfmt.enable = true;
