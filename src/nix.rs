@@ -172,7 +172,6 @@ fn eval_expr(expr: &str, location: Option<PathBuf>) -> PyResult<TvixValue> {
 
 trait TryToPy {
     fn try_to_object(&self, py: Python<'_>) -> PyResult<PyObject>;
-    fn try_to_dict(&self, py: Python<'_>) -> PyResult<Py<PyDict>>;
 }
 
 macro_rules! into_pyany {
@@ -238,39 +237,6 @@ impl TryToPy for TvixValue {
         };
         Ok(object)
     }
-
-    fn try_to_dict(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
-        let dict = PyDict::new(py);
-        match self {
-            TvixValue::Attrs(attrs) => {
-                for (k, v) in attrs.iter() {
-                    let key = from_utf8(k.as_bytes()).map_err(|e| {
-                        ConvertionError::new_err(format!(
-                            "Failed to convert bytes to string ({}) on {}",
-                            e, k
-                        ))
-                    })?;
-                    let value = v.try_to_object(py)?;
-                    dict.set_item(key, value)?;
-                }
-                Ok(dict.to_owned().unbind())
-            }
-            TvixValue::Thunk(thunk) => {
-                if thunk.is_evaluated() {
-                    Ok(thunk.value().try_to_dict(py)?)
-                } else {
-                    Err(ConvertionError::new_err(format!(
-                        "Cannot convert nix thunk to python object: {}",
-                        self
-                    )))?
-                }
-            }
-            _ => Err(ConvertionError::new_err(format!(
-                "Expected a nix attrs, but got {}",
-                self
-            ))),
-        }
-    }
 }
 
 /// Evaluate a nix file and convert it to python dictionary
@@ -282,7 +248,7 @@ impl TryToPy for TvixValue {
 /// Returns:
 ///   dict: The evaluated nix expression as a python dictionary.
 #[pyfunction]
-pub fn eval(py: Python<'_>, path: String) -> PyResult<Py<PyDict>> {
+pub fn eval(py: Python<'_>, path: String) -> PyResult<PyObject> {
     let path = PathBuf::from(path);
     let content = fs::read_to_string(&path).map_err(|e| {
         PyIOError::new_err(format!(
@@ -291,7 +257,7 @@ pub fn eval(py: Python<'_>, path: String) -> PyResult<Py<PyDict>> {
             e
         ))
     })?;
-    eval_expr(&content, Some(path.clone()))?.try_to_dict(py)
+    eval_expr(&content, Some(path.clone()))?.try_to_object(py)
 }
 
 /// Evaluate a nix expression and convert it to python dictionary.
@@ -305,13 +271,14 @@ pub fn eval(py: Python<'_>, path: String) -> PyResult<Py<PyDict>> {
 /// Returns:
 ///   dict: The evaluated nix expression as a python dictionary.
 #[pyfunction]
+#[pyo3(signature = (content, dir = None))]
 pub fn evals(
     py: Python<'_>,
     content: String,
     dir: Option<String>,
-) -> PyResult<Py<PyDict>> {
+) -> PyResult<PyObject> {
     let path = dir.map(|d| PathBuf::from(d).join("virtual.nix"));
-    eval_expr(&content, path)?.try_to_dict(py)
+    eval_expr(&content, path)?.try_to_object(py)
 }
 
 #[pymodule]
