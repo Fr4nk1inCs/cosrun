@@ -10,7 +10,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 annotate-snippets = "0.11.5"
-pyo3 = "0.24.0"
+pyo3 = { version = "0.25.0", features = [
+  "extension-module",
+  "experimental-inspect",
+] }
 tvix-eval = { git = "https://code.tvl.fyi/depot.git", version = "0.1.0" }
 rnix = "0.11.0"
 codemap = "0.1.3"

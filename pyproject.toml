@@ -4,12 +4,22 @@ build-backend = "maturin"
 
 [project]
 name = "cosutils"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
+
 [tool.maturin]
 features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "cosutils.rustlib"
+
+[tool.black]
+line-length = 80
+
+[tool.pyright]
+typeCheckingMode = "strict"
+enableTypeIgnoreComments = true
