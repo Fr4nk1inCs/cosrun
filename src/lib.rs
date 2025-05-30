@@ -45,5 +45,20 @@ mod rustlib {
             #[pymodule_export]
             use crate::parsers::nix::evals;
         }
+
+        #[pymodule]
+        mod jsonc {
+            use super::*;
+
+            #[pymodule_init]
+            fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+                init_submodule(m, "cosutils.rustlib.parsers.jsonc")
+            }
+
+            #[pymodule_export]
+            use crate::parsers::jsonc::load;
+            #[pymodule_export]
+            use crate::parsers::jsonc::loads;
+        }
     }
 }
